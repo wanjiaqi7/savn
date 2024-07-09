@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Chomp1d(nn.Module):
+class Chomp1d(nn.Module):                          # 用于修剪卷积层的输出，使其保持因果性（即输出的时间步只依赖于当前及之前的时间步）
     def __init__(self, chomp_size):
         super(Chomp1d, self).__init__()
         self.chomp_size = chomp_size
@@ -12,7 +12,7 @@ class Chomp1d(nn.Module):
         return x[:, :, : -self.chomp_size].contiguous()
 
 
-class TemporalBlock(nn.Module):
+class TemporalBlock(nn.Module):                 # 定义了一个时序块，包括两个卷积层、修剪层和激活函数
     def __init__(
         self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout
     ):
