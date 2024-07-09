@@ -124,23 +124,25 @@ class GCN(torch.nn.Module):
 
     def embedding(self, state, target, action_probs):
         action_embedding_input = action_probs
-
+                                                                     # GloVe 嵌入
         glove_embedding = F.relu(self.embed_glove(target))
         glove_reshaped = glove_embedding.view(1, 64, 1, 1).repeat(1, 1, 7, 7)
-
+                                                                           # 动作嵌入
         action_embedding = F.relu(self.embed_action(action_embedding_input))
         action_reshaped = action_embedding.view(1, 10, 1, 1).repeat(1, 1, 7, 7)
-
+                                                             # 图像嵌入
         image_embedding = F.relu(self.conv1(state))
         x = self.dropout(image_embedding)
+                                                                    # 将图像特征、GloVe 嵌入和动作嵌入拼接在一起，并通过 1x1 卷积层（self.pointwise）进行处理
         x = torch.cat((x, glove_reshaped, action_reshaped), dim=1)
         x = F.relu(self.pointwise(x))
         x = self.dropout(x)
+                                           # Flatten the tensor
         out = x.view(x.size(0), -1)
-
+                                                     # 获得 GCN 嵌入，并与之前的特征拼接
         out = torch.cat((out, self.gcn_embed(state)), dim=1)
 
-        return out, image_embedding
+        return out, image_embedding                 # out 被用作 LSTM 的输入
 
     def a3clstm(self, embedding, prev_hidden):
         hx, cx = self.lstm(embedding, prev_hidden)
@@ -151,12 +153,12 @@ class GCN(torch.nn.Module):
 
     def forward(self, model_input, model_options):
         state = model_input.state
-        (hx, cx) = model_input.hidden
+        (hx, cx) = model_input.hidden                    # LSTM 的隐藏状态和细胞状态，分别代表 LSTM 的短期记忆和长期记忆
 
-        target = model_input.target_class_embedding
+        target = model_input.target_class_embedding           # 目标的类别嵌入（使用 GloVe 嵌入表示）
         action_probs = model_input.action_probs
-        x, image_embedding = self.embedding(state, target, action_probs)
-        actor_out, critic_out, (hx, cx) = self.a3clstm(x, (hx, cx))
+        x, image_embedding = self.embedding(state, target, action_probs)            # embedding 函数将状态、目标和动作特征结合起来，生成一个用于 LSTM 的嵌入向量 x       
+        actor_out, critic_out, (hx, cx) = self.a3clstm(x, (hx, cx))                  # out（即 x）传递给 a3clstm 函数，用于计算策略输出和价值输出
 
         return ModelOutput(
             value=critic_out,
