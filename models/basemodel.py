@@ -15,24 +15,23 @@ class BaseModel(torch.nn.Module):
         resnet_embedding_sz = args.hidden_state_sz
         hidden_state_sz = args.hidden_state_sz
         super(BaseModel, self).__init__()
-
+                                                                   # 定义了卷积层、池化层和两个线性嵌入层
         self.conv1 = nn.Conv2d(resnet_embedding_sz, 64, 1)
         self.maxp1 = nn.MaxPool2d(2, 2)
         self.embed_glove = nn.Linear(target_embedding_sz, 64)
         self.embed_action = nn.Linear(action_space, 10)
-
+                                                                 # 定义了一个逐点卷积层
         pointwise_in_channels = 138
-
         self.pointwise = nn.Conv2d(pointwise_in_channels, 64, 1, 1)
-
+                                                                   # 定义了LSTM单元
         lstm_input_sz = 7 * 7 * 64
-
         self.hidden_state_sz = hidden_state_sz
         self.lstm = nn.LSTMCell(lstm_input_sz, hidden_state_sz)
+                                                                     # 定义了两个线性层，一个用于价值估计（critic），另一个用于策略估计（actor）
         num_outputs = action_space
         self.critic_linear = nn.Linear(hidden_state_sz, 1)
         self.actor_linear = nn.Linear(hidden_state_sz, num_outputs)
-
+                                                                     # 初始化各层的权重，特别是卷积层、LSTM和线性层的权重和偏置
         self.apply(weights_init)
         relu_gain = nn.init.calculate_gain("relu")
         self.conv1.weight.data.mul_(relu_gain)
@@ -47,16 +46,15 @@ class BaseModel(torch.nn.Module):
 
         self.lstm.bias_ih.data.fill_(0)
         self.lstm.bias_hh.data.fill_(0)
-
+                                                                                 # 定义了一个线性层用于动作预测和一个dropout层用于正则化
         self.action_predict_linear = nn.Linear(2 * lstm_input_sz, action_space)
-
         self.dropout = nn.Dropout(p=args.dropout_rate)
 
     def embedding(self, state, target, action_probs, params):
 
         action_embedding_input = action_probs
 
-        if params is None:
+        if params is None:                                          # 在没有给定参数的情况下，计算状态嵌入、目标嵌入和动作嵌入，并通过卷积层和逐点卷积层
             glove_embedding = F.relu(self.embed_glove(target))
             glove_reshaped = glove_embedding.view(1, 64, 1, 1).repeat(1, 1, 7, 7)
 
@@ -70,7 +68,7 @@ class BaseModel(torch.nn.Module):
             x = self.dropout(x)
             out = x.view(x.size(0), -1)
 
-        else:
+        else:                               # 在给定参数的情况下，使用这些参数计算嵌入              
             glove_embedding = F.relu(
                 F.linear(
                     target,
@@ -109,13 +107,13 @@ class BaseModel(torch.nn.Module):
         return out, image_embedding
 
     def a3clstm(self, embedding, prev_hidden, params):
-        if params is None:
+        if params is None:                                    # 在没有给定参数的情况下，计算LSTM的输出，并通过线性层得到策略输出和价值输出
             hx, cx = self.lstm(embedding, prev_hidden)
             x = hx
             actor_out = self.actor_linear(x)
             critic_out = self.critic_linear(x)
 
-        else:
+        else:                                              # 在给定参数的情况下，使用这些参数计算LSTM的输出
             hx, cx = self._backend.LSTMCell(
                 embedding,
                 prev_hidden,
