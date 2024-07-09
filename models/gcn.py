@@ -15,7 +15,7 @@ from datasets.glove import Glove
 from .model_io import ModelOutput
 
 
-def normalize_adj(adj):
+def normalize_adj(adj):    # 函数的目的是将图的邻接矩阵进行对称归一化
     adj = sp.coo_matrix(adj)
     rowsum = np.array(adj.sum(1))
     d_inv_sqrt = np.power(rowsum, -0.5).flatten()
@@ -31,21 +31,23 @@ class GCN(torch.nn.Module):
         resnet_embedding_sz = 512
         hidden_state_sz = args.hidden_state_sz
         super(GCN, self).__init__()
-
+                                                              # Convolutional and Pooling Layers
         self.conv1 = nn.Conv2d(resnet_embedding_sz, 64, 1)
-        self.maxp1 = nn.MaxPool2d(2, 2)
-        self.embed_glove = nn.Linear(target_embedding_sz, 64)
-        self.embed_action = nn.Linear(action_space, 10)
+        self.maxp1 = nn.MaxPool2d(2, 2)                        
+                                                                   # Linear Layers for Embedding
+        self.embed_glove = nn.Linear(target_embedding_sz, 64)      # 用于处理词向量的线性层
+        self.embed_action = nn.Linear(action_space, 10)            # 用于处理动作特征的线性层
 
         pointwise_in_channels = 138
-
+                                                                     # Pointwise Convolution
         self.pointwise = nn.Conv2d(pointwise_in_channels, 64, 1, 1)
 
         lstm_input_sz = 7 * 7 * 64 + 512
 
         self.hidden_state_sz = hidden_state_sz
-        self.lstm = nn.LSTMCell(lstm_input_sz, hidden_state_sz)
+        self.lstm = nn.LSTMCell(lstm_input_sz, hidden_state_sz)      # 用于处理时序数据的LSTMCell
         num_outputs = action_space
+                                                                     # Linear Layers for Actor-Critic
         self.critic_linear = nn.Linear(hidden_state_sz, 1)
         self.actor_linear = nn.Linear(hidden_state_sz, num_outputs)
 
@@ -55,12 +57,12 @@ class GCN(torch.nn.Module):
         self.actor_linear.weight.data = norm_col_init(
             self.actor_linear.weight.data, 0.01
         )
-        self.actor_linear.bias.data.fill_(0)
-        self.critic_linear.weight.data = norm_col_init(
+        self.actor_linear.bias.data.fill_(0)                     # 策略线性层的初始化
+        self.critic_linear.weight.data = norm_col_init(         
             self.critic_linear.weight.data, 1.0
-        )
+        )                                             # 价值线性层的初始化
         self.critic_linear.bias.data.fill_(0)
-
+                                            # LSTM的初始化
         self.lstm.bias_ih.data.fill_(0)
         self.lstm.bias_hh.data.fill_(0)
 
@@ -70,19 +72,19 @@ class GCN(torch.nn.Module):
 
         n = 83
         self.n = n
-
+                                                   # 图卷积
         # get and normalize adjacency matrix.
-        A_raw = torch.load("./data/gcn/adjmat.dat")
-        A = normalize_adj(A_raw).tocsr().toarray()
-        self.A = torch.nn.Parameter(torch.Tensor(A))
+        A_raw = torch.load("./data/gcn/adjmat.dat")         # 加载原始邻接矩阵
+        A = normalize_adj(A_raw).tocsr().toarray()          # 规范化邻接矩阵
+        self.A = torch.nn.Parameter(torch.Tensor(A))        # 将邻接矩阵作为可训练参数
 
         # last layer of resnet18.
         resnet18 = models.resnet18(pretrained=True)
-        modules = list(resnet18.children())[-2:]
+        modules = list(resnet18.children())[-2:]           # 取ResNet18最后两层
         self.resnet18 = nn.Sequential(*modules)
         for p in self.resnet18.parameters():
             p.requires_grad = False
-
+                                                    # 词嵌入
         # glove embeddings for all the objs.
         objects = open("./data/gcn/objects.txt").readlines()
         objects = [o.strip() for o in objects]
@@ -94,14 +96,14 @@ class GCN(torch.nn.Module):
         self.all_glove = nn.Parameter(all_glove)
         self.all_glove.requires_grad = False
 
-        self.get_word_embed = nn.Linear(300, 512)
-        self.get_class_embed = nn.Linear(1000, 512)
+        self.get_word_embed = nn.Linear(300, 512)             # 从GloVe嵌入生成词向量的线性层
+        self.get_class_embed = nn.Linear(1000, 512)           # 从ResNet特征生成类别嵌入的线性层
 
-        self.W0 = nn.Linear(1024, 1024, bias=False)
+        self.W0 = nn.Linear(1024, 1024, bias=False)           # 图卷积网络的线性层
         self.W1 = nn.Linear(1024, 1024, bias=False)
         self.W2 = nn.Linear(1024, 1, bias=False)
 
-        self.final_mapping = nn.Linear(n, 512)
+        self.final_mapping = nn.Linear(n, 512)               # 最终映射层
 
     def gcn_embed(self, state):
         x = self.resnet18[0](state)
