@@ -1,4 +1,7 @@
 # Modified from https://github.com/locuslab/TCN/blob/master/TCN/tcn.py
+# Chomp1d 修剪层: 保持因果性，确保时间步依赖关系。
+# TemporalBlock 时序块: 包含卷积、修剪和激活，处理输入数据并提取时序特征。
+# TemporalConvNet 网络: 由多个时序块组成，通过扩展卷积捕捉长时间依赖。
 import torch.nn as nn
 import torch.nn.functional as F
 
