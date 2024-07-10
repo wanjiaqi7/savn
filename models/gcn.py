@@ -79,8 +79,8 @@ class GCN(torch.nn.Module):
         self.A = torch.nn.Parameter(torch.Tensor(A))        # 将邻接矩阵作为可训练参数
 
         # last layer of resnet18.
-        resnet18 = models.resnet18(pretrained=True)
-        modules = list(resnet18.children())[-2:]           # 取ResNet18最后两层
+        resnet18 = models.resnet18(pretrained=True)          # ResNet18 作为特征提取网络被加载
+        modules = list(resnet18.children())[-2:]           # 取ResNet18最后两层(移除了最后的全连接层，只保留了卷积层部分)
         self.resnet18 = nn.Sequential(*modules)
         for p in self.resnet18.parameters():
             p.requires_grad = False
