@@ -1,3 +1,4 @@
+# 通过CNN提取图像特征，结合目标嵌入和动作嵌入，使用LSTM处理时序信息，并最终生成策略（actor）和价值（critic）估计
 from __future__ import division
 
 import torch
