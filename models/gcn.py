@@ -1,5 +1,5 @@
 """ Some code borrowed from https://github.com/tkipf/pygcn."""
-
+# 主要用于处理目标之间的关系或场景中的拓扑结构
 from __future__ import division
 
 import torch
